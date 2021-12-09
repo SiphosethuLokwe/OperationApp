@@ -1,0 +1,56 @@
+﻿@page "/devices"
+
+@using OperationApp.Data
+@inject IDevice DeviceService
+@using Microsoft.Extensions.Logging;
+@inject ILogger<Operation> logger;
+
+<h1>Available Devices</h1>
+
+@if (device == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{  
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Operation ID</th>
+                <th>Operation Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var devices in device)
+            {
+                <tr>
+                    <td>@devices.DeviceID</td>
+                    <td>@devices.Name</td>
+                    <td>
+                        @devices.deviceType
+                    </td>                   
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+
+    private List<Device> device;
+    Device dev = new Device();
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            device = DeviceService.GetDevicelist();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex.Message);
+
+        }
+    }
+
+}

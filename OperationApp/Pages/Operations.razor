@@ -1,0 +1,313 @@
+﻿@page "/operations"
+
+@using OperationApp.Data
+@inject IOperationService OperationService
+@inject IDevice DeviceService
+@inject IJSRuntime JSRuntime
+@using Microsoft.Extensions.Logging;
+@inject ILogger<Operation> logger;
+@using System.IO;
+@using BlazorInputFile;
+@using System.Text;
+@using System;
+@inject Blazored.SessionStorage.ISessionStorageService sessionStorage
+
+
+
+<h1>Available Operations</h1>
+
+@if (operations == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div>
+        <button class="btn btn-primary" type="button" @onclick="Showpopup">
+            Add Operation
+        </button>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Operation ID</th>
+                <th>Operation Name</th>
+                <th>Device</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var operation in operations)
+            {
+                <tr>
+                    <td><img src="@ConvertImagetoDisplay(operation.ImageData)" style="width:100px;height:100px" /></td>
+                    <td>@operation.OperationID</td>
+                    <td>@operation.Name</td>
+
+                    @if (operation.device != null)
+                    {
+                        <td>@operation.device.Name<span>(@operation.device.deviceType)</span></td>
+                    }
+                    else
+                    {
+                        <td></td>
+                    }
+                <td>
+                    @if (operation.device != null)
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="() => ShowDevicepoup(operation.OperationID)">
+                            Update Device
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary" @onclick="() => ShowDevicepoup(operation.OperationID)">
+                            Add Device
+                        </button>
+                    }
+
+                </td>
+                    <td>
+                        <a type="button" class="btn btn-danger" href="javascript: void(0);" @onclick=" ()=>
+                            Delete(operation.OperationID,operation.Name)">
+                            Remove Operation
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+@if (popup)
+{
+    <div class="modal" tabindex="-1" role="dialog" style="display:block">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Operation</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" @onclick="@Closepopup">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <EditForm Model="op" OnValidSubmit="AddOperation">
+                    <div class="modal-body">
+                        <div class="col-sm-8">
+                            <label>
+                                Operation Name
+                            </label>
+                            <input type="text" class="form-control" placeholder="Enter Operation Name" @bind="op.Name" required />
+                        </div>
+                        <div class="col-sm-8">
+                            <label>
+                                Order
+                            </label>
+                            <input type="number" class="form-control" placeholder="Enter Order of Operation" @bind="op.OrderInWhichToPerson" required min="0" />
+                        </div>
+
+                        @*<div class="col-sm-8">
+                            <InputFile OnChange="HandleSelected" required />
+                            <br />
+                            <strong>File Selected: </strong>
+                            @if (files != null)
+                            {
+                                @files.Name
+                            }
+                        </div>*@
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="Closepopup">Close</button>
+                        <button type="submit" class="btn btn-primary" @onclick="Closepopup">Save changes</button>
+                    </div>
+                </EditForm>
+
+            </div>
+        </div>
+    </div>
+
+}
+@if (devicepopup)
+{
+    <div class="modal" tabindex="-1" role="dialog" style="display:block">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Device</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" @onclick="@CloseDevicepopup">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <EditForm Model="dev" OnValidSubmit="AddDevice">
+
+                    <div class="modal-body">
+
+                        <div class="col-sm-8">
+                            <label>
+                                Device Name
+                            </label>
+                            <input type="text" class="form-control" placeholder="Enter Device Name" @bind="dev.Name" />
+                        </div>
+                        <div class="col-sm-8">
+                            <label>
+                                Device Type
+                            </label>
+                            <InputSelect class="form-control" @bind-Value ="dev.deviceType">
+                                @foreach (var Item in Enum.GetValues(typeof(DeviceType)))
+                                {
+                                    <option value="@Item">@Item</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="CloseDevicepopup">Close</button>
+                        <button type="submit" class="btn btn-primary" @onclick="CloseDevicepopup">Save changes</button>
+                    </div>
+                </EditForm>
+
+            </div>
+        </div>
+    </div>
+
+}
+
+@code {
+    private List<Operation> operations;
+    private List<Device> device;
+    Operation op = new Operation();
+    Device dev = new Device();
+    IFileListEntry files;
+    public byte[] Imgdata { get; set; }
+    public int Id { get; set; }
+    private static Random rnd = new Random();
+
+
+    bool popup = false;
+    bool devicepopup = false;
+
+    void Showpopup()
+    {
+        popup = true;
+    }
+
+    void Closepopup()
+    {
+        popup = false;
+    }
+
+    void ShowDevicepoup(int id)
+    {
+        Id = id;
+        devicepopup = true;
+
+    }
+
+    void CloseDevicepopup()
+    {
+        devicepopup = false;
+    }
+    protected override void OnInitialized()
+    {
+        try
+        {
+            operations = OperationService.GetOperationlist();
+            operations.OrderBy(x => x.OrderInWhichToPerson);
+            //this.ClearLocalStorage();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex.Message);
+
+        }
+    }
+
+    async Task Delete(int operationID, string operationName)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the operation '{operationName}'?"))
+            return;
+        try
+        {
+            OperationService.RemoveOperation(operationID);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex.Message);
+        }
+
+    }
+
+    void  AddOperation()
+    {
+        try
+        {
+            //var dta = await sessionStorage.GetItemAsync<byte[]>("imageData");
+            //Imgdata = dta;
+            //op.ImageData = Imgdata;
+            OperationService.AddOperation(op);
+            operations = OperationService.GetOperationlist();
+            op = new Operation();
+        }
+
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex.Message);
+        }
+    }
+
+    void AddDevice()
+    {
+        try
+        {
+            dev.DeviceID = rnd.Next(1, 20);
+            
+
+            DeviceService.AddDevice(dev);
+
+            foreach (var operation in operations.Where(x => x.OperationID == Id))
+            {
+                operation.device = dev;
+            }
+            dev = new Device();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex.Message);
+        }
+    }
+
+    async Task HandleSelected(IFileListEntry[] file)
+    {
+        files = file.FirstOrDefault();
+        if (file != null)
+        {
+            var ms = new MemoryStream();
+            await files.Data.CopyToAsync(ms);
+            Imgdata = ms.ToArray();
+            this.UpdateLocalStorage(Imgdata);
+
+        }
+
+    }
+
+    string ConvertImagetoDisplay(byte[] image)
+    {
+        if (image != null)
+        {
+            var base64 = Convert.ToBase64String(image);
+            var fs = string.Format("data:image/png;base64,{0}", base64);
+            return fs;
+        }
+        return "";
+    }
+
+    public async void UpdateLocalStorage(byte[] data)
+    {
+        await sessionStorage.SetItemAsync("imageData", data);
+
+    }
+
+    public async void ClearLocalStorage()
+    {
+        await sessionStorage.RemoveItemAsync("imageData");
+    }
+}
